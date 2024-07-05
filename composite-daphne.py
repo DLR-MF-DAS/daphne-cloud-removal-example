@@ -5,6 +5,8 @@ import numpy.ma as ma
 import glob
 import os
 from operator import and_
+from api.python.context.daphne_context import DaphneContext
+
 
 BAND_NAMES = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B10', 'B11', 'B12', 'BQA10', 'BQA20', 'BQA60', 'FILL_MASK', 'CLOUD_MASK', 'CLOUDLESS_MASK', 'SHADOW_MASK', 'CLOUD_PROB', 'CLOUD_DIST']
 
@@ -14,6 +16,7 @@ BAND_DICT = dict([(band_name, i) for i, band_name in enumerate(BAND_NAMES)])
 @click.option('-i', '--input-dir', help='Input directory', required=True)
 @click.option('-o', '--output-file', help='Output filename', required=True)
 def main(input_dir, output_file):
+    dc = DaphneContext()
     tiff_data = []
     distance_data = []
     mask_data = []
@@ -22,6 +25,7 @@ def main(input_dir, output_file):
         with rasterio.open(tiff_file, 'r') as src:
             profile = src.profile
             data = src.read()
+            data_daphne = dc.from_numpy(data[0])
             mask = np.logical_or(data[BAND_DICT['CLOUD_MASK']], data[BAND_DICT['SHADOW_MASK']])
             mask = np.logical_or(mask, np.logical_not(data[BAND_DICT['FILL_MASK']]))
             mask = np.tile(mask, (22, 1, 1))
