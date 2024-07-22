@@ -5,7 +5,7 @@ import numpy.ma as ma
 import glob
 import os
 from operator import and_
-from api.python.context.daphne_context import DaphneContext
+from daphne.context.daphne_context import DaphneContext
 
 
 BAND_NAMES = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B10', 'B11', 'B12', 'BQA10', 'BQA20', 'BQA60', 'FILL_MASK', 'CLOUD_MASK', 'CLOUDLESS_MASK', 'SHADOW_MASK', 'CLOUD_PROB', 'CLOUD_DIST']
