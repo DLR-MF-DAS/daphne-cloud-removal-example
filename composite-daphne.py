@@ -2,6 +2,7 @@ import click
 import rasterio
 import numpy as np
 import numpy.ma as ma
+import pandas as pd
 import glob
 import os
 from operator import and_
@@ -11,6 +12,15 @@ from daphne.context.daphne_context import DaphneContext
 BAND_NAMES = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B10', 'B11', 'B12', 'BQA10', 'BQA20', 'BQA60', 'FILL_MASK', 'CLOUD_MASK', 'CLOUDLESS_MASK', 'SHADOW_MASK', 'CLOUD_PROB', 'CLOUD_DIST']
 
 BAND_DICT = dict([(band_name, i) for i, band_name in enumerate(BAND_NAMES)])
+
+def daphne_not(arr):
+    return (arr - 1) * (-1)
+
+def daphne_and(arr1, arr2):
+    return arr1 * arr2
+
+def daphne_or(arr1, arr2):
+    return daphne_not(daphne_not(arr1) * daphne_not(arr2))
 
 @click.command()
 @click.option('-i', '--input-dir', help='Input directory', required=True)
@@ -25,18 +35,24 @@ def main(input_dir, output_file):
         with rasterio.open(tiff_file, 'r') as src:
             profile = src.profile
             data = src.read()
-            data_daphne = dc.from_numpy(data[0])
-            mask = np.logical_or(data[BAND_DICT['CLOUD_MASK']], data[BAND_DICT['SHADOW_MASK']])
-            mask = np.logical_or(mask, np.logical_not(data[BAND_DICT['FILL_MASK']]))
-            mask = np.tile(mask, (22, 1, 1))
-            masked_data = ma.masked_array(data, mask)
-            tiff_data.append(masked_data)
+            data_daphne = [dc.from_numpy(data[i]) for i in range(data.shape[0])]
+            mask = daphne_or(data_daphne[BAND_DICT['CLOUD_MASK']], data_daphne[BAND_DICT['SHADOW_MASK']])
+            mask = daphne_or(mask, (data_daphne[BAND_DICT['FILL_MASK']] - 1) * (-1))
+            tiff_data.append((data_daphne, mask))
     for tiff_file in tiff_data:
         distances = None
         for other_file in tiff_data:
-            data1 = tiff_file[0:13]
-            data2 = other_file[0:13]
-            d = ma.sqrt(((data1 - data2) ** 2).sum(axis=0))
+            data1, mask1 = tiff_file
+            data2, mask2 = other_file
+            data1 = data1[0:13]
+            data2 = data2[0:13]
+            new_mask = daphne_and(mask1, mask2)
+            ds = [(band1 - band2).sqrt() for band1, band2 in zip(data1, data2)]
+            d = ds[0]
+            for d_ in ds[1:]:
+                d += d_
+            import pdb; pdb.set_trace()
+            #d = dc.sqrt(((data1 - data2) ** 2).sum(axis=0))
             if distances is None:
                 distances = d
             else:
