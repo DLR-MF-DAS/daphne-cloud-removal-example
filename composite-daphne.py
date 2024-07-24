@@ -35,9 +35,9 @@ def main(input_dir, output_file):
         with rasterio.open(tiff_file, 'r') as src:
             profile = src.profile
             data = src.read()
-            data_daphne = [dc.from_numpy(data[i]) for i in range(data.shape[0])]
+            data_daphne = [dc.from_numpy(data[i].astype(np.int32)) for i in range(data.shape[0])]
             mask = daphne_or(data_daphne[BAND_DICT['CLOUD_MASK']], data_daphne[BAND_DICT['SHADOW_MASK']])
-            mask = daphne_or(mask, (data_daphne[BAND_DICT['FILL_MASK']] - 1) * (-1))
+            mask = daphne_or(mask, daphne_not(data_daphne[BAND_DICT['FILL_MASK']]))
             tiff_data.append((data_daphne, mask))
     for tiff_file in tiff_data:
         distances = None
@@ -48,11 +48,10 @@ def main(input_dir, output_file):
             data2 = data2[0:13]
             new_mask = daphne_and(mask1, mask2)
             ds = [(band1 - band2).sqrt() for band1, band2 in zip(data1, data2)]
+            import pdb; pdb.set_trace()
             d = ds[0]
             for d_ in ds[1:]:
                 d += d_
-            import pdb; pdb.set_trace()
-            #d = dc.sqrt(((data1 - data2) ** 2).sum(axis=0))
             if distances is None:
                 distances = d
             else:
