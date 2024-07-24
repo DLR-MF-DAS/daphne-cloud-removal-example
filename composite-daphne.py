@@ -35,7 +35,7 @@ def main(input_dir, output_file):
         with rasterio.open(tiff_file, 'r') as src:
             profile = src.profile
             data = src.read()
-            data_daphne = [dc.from_numpy(data[i].astype(np.int32)) for i in range(data.shape[0])]
+            data_daphne = [dc.from_numpy(data[i].astype(np.int64)) for i in range(data.shape[0])]
             mask = daphne_or(data_daphne[BAND_DICT['CLOUD_MASK']], data_daphne[BAND_DICT['SHADOW_MASK']])
             mask = daphne_or(mask, daphne_not(data_daphne[BAND_DICT['FILL_MASK']]))
             tiff_data.append((data_daphne, mask))
@@ -47,16 +47,17 @@ def main(input_dir, output_file):
             data1 = data1[0:13]
             data2 = data2[0:13]
             new_mask = daphne_and(mask1, mask2)
-            ds = [(band1 - band2).sqrt() for band1, band2 in zip(data1, data2)]
-            import pdb; pdb.set_trace()
+            ds = [(band1 - band2) ** 2 for band1, band2 in zip(data1, data2)]
             d = ds[0]
             for d_ in ds[1:]:
                 d += d_
+            d = d.sqrt()
             if distances is None:
-                distances = d
+                distances = (d, new_mask)
             else:
-                distances = ma.masked_array(distances.data + d.data, mask=np.logical_and(distances.mask, d.mask))
+                distances = (distances[0] + d, daphne_and(distances[1], new_mask))
         distance_data.append(distances)
+    import pdb; pdb.set_trace()
     ix = np.array([ma.argmin(distance_data, axis=0, keepdims=True)])
     composite = np.take_along_axis(np.array(tiff_data), ix, axis=0)[0]
     with rasterio.open(output_file, 'w', **profile) as dst:
